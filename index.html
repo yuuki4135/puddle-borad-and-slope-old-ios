@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>撮影ボード</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin:0; padding:0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    background: #fff; color: #000;
+    display: -webkit-box; display: flex;
+    -webkit-box-orient: vertical; -webkit-box-direction: normal;
+    flex-direction: column; height: 100vh; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  .top { padding: 10px 12px 6px; text-align: center; border-bottom: 3px solid #000; }
+  .date { font-size: 22px; font-weight: 700; line-height: 1.2; }
+  .face { font-size: 26px; font-weight: 800; margin-top: 2px; color: #b5443a; }
+  .face .label { font-size: 15px; color:#555; font-weight:600; }
+  .mid { -webkit-box-flex:1; flex: 1 1 auto; display: -webkit-box; display:flex; -webkit-box-orient:vertical; -webkit-box-direction:normal; flex-direction: column; -webkit-box-pack:center; justify-content: center; -webkit-box-align:center; align-items: center; border-bottom: 3px solid #000; padding: 4px; }
+  .nowlabel { font-size: 15px; font-weight: 700; color:#333; }
+  .clock { font-size: 13vw; font-weight: 800; line-height: 1.0; }
+  .slope { -webkit-box-flex:1; flex: 1 1 auto; display:-webkit-box; display:flex; -webkit-box-orient:vertical; -webkit-box-direction:normal; flex-direction: column; -webkit-box-pack:center; justify-content: center; -webkit-box-align:center; align-items: center; border-bottom: 3px solid #000; padding: 4px; background:#f3f6f9; }
+  .slopelabel { font-size: 15px; font-weight:700; color:#333; }
+  .slopeval { font-size: 12vw; font-weight: 800; line-height:1.0; }
+  .slopesub { font-size: 15px; font-weight:700; margin-top:2px; }
+  .slopesub.ok { color:#2e7d32; }
+  .slopesub.flat { color:#b5760a; }
+  .permit { font-size: 14px; font-weight:700; color:#1f5f8b; text-decoration: underline; padding: 8px; }
+  .bottom { -webkit-box-flex:1; flex: 1 1 auto; display:-webkit-box; display:flex; -webkit-box-orient:vertical; -webkit-box-direction:normal; flex-direction: column; -webkit-box-pack:center; justify-content: center; -webkit-box-align:center; align-items: center; background: #1f5f8b; color: #fff; padding: 4px; }
+  .elapsedlabel { font-size: 15px; font-weight: 700; }
+  .elapsed { font-size: 14vw; font-weight: 800; line-height: 1.0; }
+  .elapsedsub { font-size: 14px; margin-top: 1px; }
+  .bar { display:-webkit-box; display:flex; padding: 7px; background: #eef1f4; }
+  .bar button { -webkit-box-flex:1; flex: 1; margin: 0 3px; padding: 12px 4px; font-size: 14px; font-weight: 700; border: none; border-radius: 10px; background: #1f5f8b; color: #fff; font-family: inherit; }
+  .bar button.ghost { background: #c9d2da; color:#1c2530; }
+  .bar button.warn { background: #b5443a; }
+  .modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display: none; -webkit-box-align:center; align-items: center; -webkit-box-pack:center; justify-content: center; padding: 24px; z-index: 20; }
+  .modal.show { display: -webkit-box; display:flex; }
+  .modal-box { background: #fff; border-radius: 16px; padding: 20px; width: 100%; max-width: 320px; text-align: center; }
+  .modal-box p { font-size: 16px; font-weight:700; margin-bottom: 12px; }
+  .modal-box input { width: 100%; font-size: 22px; text-align: center; padding: 12px; border: 2px solid #1f5f8b; border-radius: 10px; font-family: inherit; }
+  .modal-box .mbtns { display:-webkit-box; display:flex; margin-top:14px; }
+  .modal-box .mbtns button { -webkit-box-flex:1; flex:1; margin:0 4px; padding:13px; font-size:15px; font-weight:700; border:none; border-radius:10px; font-family:inherit; }
+  .modal-box .ok { background:#1f5f8b; color:#fff; }
+  .modal-box .cancel { background:#eef1f4; color:#1c2530; }
+</style>
+</head>
+<body>
+  <div class="top" id="faceArea">
+    <div class="date" id="date">----/--/--</div>
+    <div class="face"><span class="label">面：</span><span id="faceVal">タップで入力</span></div>
+  </div>
+  <div class="mid">
+    <div class="nowlabel">現在時刻</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+  <div class="slope">
+    <div class="slopelabel">傾斜（参考値）</div>
+    <div class="slopeval" id="slopeVal">--</div>
+    <div class="slopesub" id="slopeSub">計測準備中</div>
+    <div class="permit" id="permitBtn" style="display:none;">タップしてセンサーを許可</div>
+  </div>
+  <div class="bottom">
+    <div class="elapsedlabel">散水からの経過</div>
+    <div class="elapsed" id="elapsed">0:00</div>
+    <div class="elapsedsub" id="startedAt">未スタート</div>
+  </div>
+  <div class="bar">
+    <button id="startBtn">散水開始</button>
+    <button class="ghost" id="pauseBtn">一時停止</button>
+    <button class="warn" id="resetBtn">リセット</button>
+    <button class="ghost" id="zeroBtn">傾斜0補正</button>
+  </div>
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <p>面番号を入力</p>
+      <input type="text" id="faceInput" placeholder="例：9面 / A-3" autocomplete="off">
+      <div class="mbtns">
+        <button class="cancel" id="mCancel">キャンセル</button>
+        <button class="ok" id="mOk">決定</button>
+      </div>
+    </div>
+  </div>
+<script>
+function z(n){ n = String(n); return n.length < 2 ? '0' + n : n; }
+
+var days = ['日','月','火','水','木','金','土'];
+function updateClock(){
+  var d = new Date();
+  document.getElementById('date').innerHTML =
+    d.getFullYear() + '/' + z(d.getMonth()+1) + '/' + z(d.getDate()) + ' (' + days[d.getDay()] + ')';
+  document.getElementById('clock').innerHTML =
+    z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds());
+}
+updateClock();
+setInterval(updateClock, 250);
+
+/* タイマー */
+var startTime = null, paused = false, pausedAccum = 0, pauseStart = null;
+var elapsedEl = document.getElementById('elapsed');
+var startedAtEl = document.getElementById('startedAt');
+var pauseBtn = document.getElementById('pauseBtn');
+
+function fmtElapsed(ms){
+  var t = Math.floor(ms/1000);
+  var h = Math.floor(t/3600);
+  var m = Math.floor((t%3600)/60);
+  var s = t%60;
+  if (h > 0) return h + ':' + z(m) + ':' + z(s);
+  return m + ':' + z(s);
+}
+function updateElapsed(){
+  if (startTime === null || paused) return;
+  elapsedEl.innerHTML = fmtElapsed(new Date().getTime() - startTime - pausedAccum);
+}
+setInterval(updateElapsed, 250);
+
+document.getElementById('startBtn').onclick = function(){
+  var d = new Date();
+  startTime = new Date().getTime();
+  pausedAccum = 0; paused = false; pauseStart = null;
+  pauseBtn.innerHTML = '一時停止';
+  startedAtEl.innerHTML = '散水: ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()) + ' から';
+  elapsedEl.innerHTML = '0:00';
+};
+pauseBtn.onclick = function(){
+  if (startTime === null) return;
+  if (!paused) { paused = true; pauseStart = new Date().getTime(); pauseBtn.innerHTML = '再開'; }
+  else { paused = false; pausedAccum += new Date().getTime() - pauseStart; pauseBtn.innerHTML = '一時停止'; }
+};
+document.getElementById('resetBtn').onclick = function(){
+  startTime = null; paused = false; pausedAccum = 0; pauseStart = null;
+  elapsedEl.innerHTML = '0:00'; startedAtEl.innerHTML = '未スタート'; pauseBtn.innerHTML = '一時停止';
+};
+
+/* 傾斜 */
+var zeroOffset = 0, lastAngle = null, smooth = null;
+var slopeVal = document.getElementById('slopeVal');
+var slopeSub = document.getElementById('slopeSub');
+var permitBtn = document.getElementById('permitBtn');
+var DEG = Math.PI / 180;
+
+function handleOrientation(e){
+  var beta = e.beta || 0;
+  var gamma = e.gamma || 0;
+  var tb = Math.tan(beta * DEG);
+  var tg = Math.tan(gamma * DEG);
+  var rad = Math.atan(Math.sqrt(tb*tb + tg*tg));
+  var angle = rad / DEG;
+  smooth = (smooth === null) ? angle : (smooth * 0.8 + angle * 0.2);
+  lastAngle = smooth;
+  render();
+}
+function render(){
+  if (lastAngle === null) return;
+  var a = lastAngle - zeroOffset;
+  var pct = Math.tan(a * DEG) * 100;
+  var aAbs = Math.abs(a);
+  slopeVal.innerHTML = a.toFixed(1) + '&deg; / ' + pct.toFixed(1) + '%';
+  slopeSub.className = 'slopesub';
+  if (aAbs < 0.4) { slopeSub.innerHTML = 'ほぼ水平（勾配不足の疑い）'; slopeSub.className = 'slopesub flat'; }
+  else if (aAbs >= 0.6) { slopeSub.innerHTML = '勾配あり（向きは要確認）'; slopeSub.className = 'slopesub ok'; }
+  else { slopeSub.innerHTML = '勾配が小さめ'; slopeSub.className = 'slopesub flat'; }
+}
+function startSensor(){
+  if (window.addEventListener) window.addEventListener('deviceorientation', handleOrientation, false);
+  slopeSub.innerHTML = '計測中…棒の上に置いてください';
+  permitBtn.style.display = 'none';
+}
+function initSensor(){
+  if (typeof DeviceOrientationEvent === 'undefined') {
+    slopeVal.innerHTML = '非対応';
+    slopeSub.innerHTML = 'この端末は傾斜センサー非対応';
+    return;
+  }
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    permitBtn.style.display = 'block';
+    slopeSub.innerHTML = 'センサー許可が必要です';
+    permitBtn.onclick = function(){
+      DeviceOrientationEvent.requestPermission().then(function(state){
+        if (state === 'granted') startSensor();
+        else slopeSub.innerHTML = '許可されませんでした';
+      })['catch'](function(){ slopeSub.innerHTML = '許可エラー'; });
+    };
+  } else {
+    startSensor();
+  }
+}
+initSensor();
+
+document.getElementById('zeroBtn').onclick = function(){
+  if (lastAngle !== null) {
+    zeroOffset = lastAngle;
+    slopeSub.innerHTML = 'ゼロ補正しました';
+    setTimeout(render, 600);
+  }
+};
+
+/* 面番号 */
+var modal = document.getElementById('modal');
+var faceInput = document.getElementById('faceInput');
+document.getElementById('faceArea').onclick = function(){
+  var cur = document.getElementById('faceVal').innerHTML;
+  faceInput.value = (cur === 'タップで入力') ? '' : cur;
+  modal.className = 'modal show';
+  setTimeout(function(){ faceInput.focus(); }, 100);
+};
+document.getElementById('mOk').onclick = function(){
+  var v = faceInput.value;
+  if (v) { v = v.replace(/^\s+|\s+$/g, ''); }
+  document.getElementById('faceVal').innerHTML = v || 'タップで入力';
+  modal.className = 'modal';
+};
+document.getElementById('mCancel').onclick = function(){ modal.className = 'modal'; };
+faceInput.onkeydown = function(e){ if (e.keyCode === 13) document.getElementById('mOk').onclick(); };
+</script>
+</body>
+</html>
